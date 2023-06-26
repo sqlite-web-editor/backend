@@ -1,0 +1,2 @@
+The file for git to see this folder.
+And that's it.

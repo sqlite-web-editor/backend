@@ -3,9 +3,9 @@
 session creation policy: 1 file - 1 session
 """
 
+from os.path import join as os_join
 from fastapi import Response, UploadFile, HTTPException, Request
-from session_auth import cookie_create, cookie_read, \
-                         cookie_delete, generate_sid
+from session_auth import create_session, read_session_filepath, delete_session, generate_sid
 from session_auth.sa_types import Ok, Err
 from tempfiles_api import create_file, delete_file
 from sqlite3_utils import is_correct_db
@@ -15,49 +15,70 @@ from .app import app
 
 @app.post("/session/create", status_code=201)
 async def session_create(
+    file: UploadFile,
     response: Response,
-    file: UploadFile
+    request: Request
     ):
-    "creating cookies for session"
-    if file.size is None:
-        raise HTTPException(500, detail="moment")
 
-    if file.size > MAX_FILE_SIZE:
+    "Create a new session"
+
+    if file.size is None:
+        raise HTTPException(500, detail="invalid file")
+
+    if file.size > MAX_FILE_SIZE and MAX_FILE_SIZE:
         raise HTTPException(
             status_code=413,
             detail=f"Upload file size greater than {MAX_FILE_SIZE/1024/1024}mb",
             headers={"maxFileSize": f"{MAX_FILE_SIZE/1024/1024}mb"}
         )
 
+    session_id: str | None = request.cookies.get("session_id")
+
+    if session_id is not None:
+        result: Ok[str] | Err = await read_session_filepath(session_id)
+        if isinstance(result, Ok):
+            path_to_file: str = result.value
+            await delete_session(session_id)
+            delete_file(path_to_file)
+
+
     sid: str = generate_sid()
     filename: str = sid+".db"
     f_content: bytes = await file.read()
+
     await create_file(filename, f_content)
-    is_correct = await is_correct_db(f"tempfiles/{filename}") # TODO: os.path.join moment
+    is_correct = await is_correct_db(os_join("tempfiles", filename))
 
     if not is_correct:
         delete_file(filename)
         raise HTTPException(status_code=415, detail="Invalid sqlite file")
 
-    await cookie_create(sid, filename) # yeah, that stupid one thing
-    response.set_cookie(key="session_id", value=sid)
-
+    await create_session(sid, filename)
+    response.set_cookie(key="session_id", 
+                        value=sid, 
+                        httponly=True,
+                        secure=False, 
+                        max_age=1800, 
+                        expires=1800,
+                        samesite="none",
+                        domain="192.168.1.103")
 
 
 @app.delete("/session/delete", status_code=204)
-async def session_delete(request: Request, response: Response):
-    "deleting session cookies"
+async def session_delete(response: Response, request: Request,):
+    "delete the session"
+
     session_id: str | None = request.cookies.get("session_id")
 
     if session_id is None:
         raise HTTPException(status_code=405)
 
-    res: Ok | Err = await cookie_read(session_id)
+    res: Ok[str] | Err = await read_session_filepath(session_id)
     if isinstance(res, Err):
         raise HTTPException(status_code=405)
 
-    path: str = res.value[0] # TODO: os.path.join moment
+    path: str = res.value
 
     delete_file(path)
-    await cookie_delete(session_id)
+    await delete_session(session_id)
     response.delete_cookie("session_id")

@@ -1,10 +1,11 @@
 """
 Create and delete methods for temporary files 
 where sqlite databases reside
+in functions pass only filename (8dea0961-...-...-2fe10a6s.db), without filename folder
 """
 
-import multiprocessing
 import os
+from os.path import join as os_join
 import aiofiles
 from session_auth.sa_types import Path
 
@@ -16,7 +17,5 @@ async def create_file(filename: Path, content: bytes) -> None:
 
 
 def delete_file(filename: Path) -> None:
-    "delete file in tempfiles folder by filename. Create process for deleting :/"
-    proc = multiprocessing.Process(target=os.remove, args=(f"tempfiles/{filename}",))
-    proc.start()
-    proc.join()
+    "delete file in tempfiles folder by filename."
+    os.remove(os_join("tempfiles", filename)) # type: ignore

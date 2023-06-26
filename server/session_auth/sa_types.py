@@ -2,7 +2,7 @@
 Types for session_auth package
 """
 
-from typing import Union, TypeVar, Generic, Any, Optional
+from typing import Union, TypeVar, Generic, Optional
 from os import PathLike
 
 
@@ -17,7 +17,7 @@ class ResultOption(Generic[T]):
         self.value=value
 
 
-class Ok(ResultOption[Any]):
+class Ok(ResultOption[T]):
     "means that everything is fine (in the context of a function or value)"
 
 
@@ -25,5 +25,5 @@ class Err(ResultOption[Optional[Exception]]):
     "means that everything is bad (in the context of a function or value)"
 
 
-Result = Union[Ok, Err]
+Result = Union[Ok[T], Err]
 CookieNotFoundError = KeyError("Cookie not found")

@@ -2,16 +2,10 @@
 Generate token (session id) for cookie
 """
 
-import time
-
+import uuid
 
 def generate_sid():
-    "Just generate number based on unix time"
+    "generate random sid using uuid4"
     # note: sid - session id
-    sid: str = "".join(
-        (
-            str(round(time.time(), 5))
-            .split(".")
-        )
-    )
+    sid: str = str(uuid.uuid4())
     return sid

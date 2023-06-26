@@ -1,7 +1,3 @@
-"""
-Define connection as object
-"""
-
 from os import path, getcwd, sep
 from sys import exit as sys_exit
 import logging
@@ -21,10 +17,11 @@ def setup_db(dbpath: Path) -> None:
     with sqlite3.connect(dbpath) as db_connection:
         logging.info("Connected to db")
         query: str = """
-        CREATE TABLE IF NOT EXISTS cookies (
+        CREATE TABLE IF NOT EXISTS `cookies` (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             path TEXT,
             cookie TEXT,
+            timestamp TEXT
         )
         """.strip()
         cur: sqlite3.Cursor = db_connection.cursor()
@@ -33,13 +30,16 @@ def setup_db(dbpath: Path) -> None:
 
 
 def check_db():
-    print(getcwd())
     "check db for normality"
+    if getcwd().split(sep)[-1] != "server":
+        logging.fatal("Move to server folder and run python main.py")
+        sys_exit(1)
+
     try:
         with sqlite3.connect(path_to_db) as conn:
             cur = conn.cursor()
             cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            if cur.fetchone() is None: 
+            if cur.fetchone() is None:
                 raise EnvironmentError()
 
     # pylint: disable=broad-except, invalid-name
