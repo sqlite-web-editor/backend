@@ -14,21 +14,12 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from middleware import middleware_handler
 from session_auth import read_all_sessions, delete_session
 from tempfiles_api import delete_file
-from app_config import COOKIE_RELEVANCE_CHECKING_TIMEOUT
+from app_config import COOKIE_RELEVANCE_CHECKING_TIMEOUT, FRONTEND_PROTOCOL, FRONTEND_IP, FRONTEND_PORT
 
 
 app = FastAPI()
 
-origins = ["http://127.0.0.1:3000", "http://localhost:3000"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    max_age=COOKIE_RELEVANCE_CHECKING_TIMEOUT,
-)
+origins = ["http://127.0.0.1:3000", f"{FRONTEND_PROTOCOL}://{FRONTEND_IP}:{FRONTEND_PORT}"]
 
 class MiddlewareWrapper(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Coroutine],):
@@ -37,7 +28,14 @@ class MiddlewareWrapper(BaseHTTPMiddleware):
 
 
 app.add_middleware(MiddlewareWrapper)
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    max_age=COOKIE_RELEVANCE_CHECKING_TIMEOUT,
+)
 
 @app.get("/")
 async def server_root():

@@ -17,7 +17,7 @@ def detect_sql_string(any: Any):
 
 
 def get_sql_equal_expression(values: Dict[str, Any]) -> List[str]:
-    return [f"{name}={detect_sql_string(value)}" for name, value in values.items()]
+    return [f"{name}={detect_sql_string(value)}" if value is not None else f"{name} IS NULL" for name, value in values.items()]
 
 
 def get_where_expression(values: Dict[str, Any]) -> str:

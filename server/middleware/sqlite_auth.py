@@ -4,6 +4,8 @@ from starlette.background import BackgroundTask
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+
+from app_config import FRONTEND_PROTOCOL, FRONTEND_IP, FRONTEND_PORT
 from session_auth import read_session_filepath, update_session_timestamp
 from session_auth.sa_types import Ok, Err
 
@@ -18,7 +20,7 @@ async def authorization_middleware(
     Or returns a JSONResponse with a 405 error code if no record is found.
     """
     headers = {"access-control-allow-credentials": "true",
-               "access-control-allow-origin": "http://127.0.0.1:3000"}
+               "access-control-allow-origin": f"{FRONTEND_PROTOCOL}://{FRONTEND_IP}:{FRONTEND_PORT}"}
     session_id: str | None = request.cookies.get("session_id")
 
     if session_id is None:

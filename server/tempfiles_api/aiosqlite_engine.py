@@ -1,4 +1,4 @@
-from typing import List, Iterable, Dict, Any, Optional
+from typing import List, Iterable, Dict, Any, Optional, Tuple
 from os.path import join as os_join
 import logging
 from sqlite3 import OperationalError, Error
@@ -21,22 +21,51 @@ async def get_tables(filename: Path) -> Result[List[str]]:
     except Exception as error:
         logging.fatal(error)
         return Err(error)
+    
+
+async def get_table_rowcount(filename: str, tablename: str) -> int:
+    async with aiosqlite.connect(os_join("tempfiles", str(filename))) as conn:
+        async with conn.execute(f"SELECT COUNT(*) FROM {tablename}") as cur:
+            result = await cur.fetchone()
+            return result[0] # type: ignore
 
 
 async def get_columns_meta(filename: str, tablename: str) -> List[Dict]:
     columns: List[dict] = []
+
+    # ---, cid, name
+    uniques: List[Tuple[int, int, str]] = []
+
     async with aiosqlite.connect(os_join("tempfiles", str(filename))) as conn:
+            
+        async with conn.execute(f"PRAGMA index_list({tablename})") as cur:
+            index_list: Iterable[aiosqlite.Row] | None = await cur.fetchall()
+            for row in index_list:
+                async with conn.execute(f"PRAGMA index_info({row[1]})") as cur:
+                    # тут None быть просто не может, это чтобы пилинте(pylint) не ругался
+                    index_info: aiosqlite.Row = await cur.fetchone() # type: ignore
+                    uniques.append(tuple(index_info)) # type: ignore
+
         async with conn.execute(f"PRAGMA table_info({tablename})") as cursor:
             result = await cursor.fetchall()
+
             for column_metadata in result:
+                unique = False
+
+                for unique_column in uniques:
+                    if unique_column[1] == column_metadata[0]:
+                        unique=True
+                    
+                #in_unique_list = 
                 current_column = {
                     "cid": column_metadata[0],
                     "name": column_metadata[1],
                     "type": column_metadata[2],
-                    "notnull": bool(column_metadata[3]),
+                    "notnull": bool(column_metadata[3]) or bool(column_metadata[5]),
                     "dflt_value": column_metadata[4],
                     "pk": bool(column_metadata[5]),
-                    "autoincrement": False
+                    "autoincrement": bool(column_metadata[5]),
+                    "unique": unique
                 }
                 columns.append(current_column)
 
@@ -53,7 +82,6 @@ async def get_columns_meta(filename: str, tablename: str) -> List[Dict]:
     return columns
 
 
-# когда в питон добавят структы нормальные легкие и быстрые а не ети PyObj
 async def get_table_content(filename: str, tablename: str, _from: int, to: int) -> dict:
     '''
     this function returns something like
@@ -117,9 +145,8 @@ async def get_table_content(filename: str, tablename: str, _from: int, to: int) 
                 "columns": await get_columns_meta(filename, tablename),
                 "data": list(await cursor.fetchall())
             }
-            
 
-# TODO: отмена етих балбесных Path потому что оно ужос и путает патаму что мы не путь передаем а строку с именем файла и там еще ети типовые issues возникают
+
 async def check_table_exists(filename: str, tablename: str) -> bool:
     async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
         query: str = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
@@ -144,7 +171,8 @@ async def delete_row_in_table(
         where_expression: str = get_where_expression(values)
         limit_expression: str = f"LIMIT {limit}" if limit else ""
         async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
-            query: str = f"DELETE FROM {tablename} " + where_expression + limit_expression
+            query: str = f"DELETE FROM {tablename} " + where_expression + " " + limit_expression
+            print(query)
             async with conn.execute(query) as cursor:
                 await conn.commit()
                 return cursor.rowcount
@@ -161,7 +189,7 @@ async def update_row_in_table(
 
     try:
         async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
-            query: str = f"UPDATE {tablename} {set_expression} {where_expression}"
+            query: str = f"UPDATE {tablename} {set_expression} {where_expression} LIMIT 1"
             async with conn.execute(query) as cursor:
                 await conn.commit()
                 return bool(cursor.rowcount)
@@ -177,15 +205,14 @@ async def create_row_in_table(
     "return created row or false if failed"
     try:
         columns: List[dict] = await get_columns_meta(filename, tablename)
-
         for column in columns:
-            if not column["notnull"]:
+            if not column["notnull"] or column["autoincrement"]:
                 continue
 
             column_name: str = column["name"]
 
-            if values[column_name] is None:
-                raise KeyError(f"{column_name} cant be null")
+            # if values[column_name] is None:
+            #     raise KeyError(f"{column_name} cant be null")
 
 
         async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:

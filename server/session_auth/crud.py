@@ -16,6 +16,7 @@ async def create_session(session_id: str, generated_path: Path) -> None:
         await conn.execute(query, (generated_path, session_id, timestamp))
         await conn.commit()
         
+        
 async def read_session_filepath(session_id: str) -> Result[str]:
     "read a row by given cookie (session_id) value"
     query: str = "SELECT path FROM `cookies` WHERE cookie=?"

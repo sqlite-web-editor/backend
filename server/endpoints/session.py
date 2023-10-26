@@ -9,7 +9,7 @@ from session_auth import create_session, read_session_filepath, delete_session, 
 from session_auth.sa_types import Ok, Err
 from tempfiles_api import create_file, delete_file
 from sqlite3_utils import is_correct_db
-from app_config import MAX_FILE_SIZE
+from app_config import MAX_FILE_SIZE, FRONTEND_IP
 from .app import app
 
 
@@ -54,14 +54,14 @@ async def session_create(
         raise HTTPException(status_code=415, detail="Invalid sqlite file")
 
     await create_session(sid, filename)
-    response.set_cookie(key="session_id", 
-                        value=sid, 
+    response.set_cookie(key="session_id",
+                        value=sid,
                         httponly=True,
-                        secure=False, 
-                        max_age=1800, 
+                        secure=False,
+                        max_age=1800,
                         expires=1800,
-                        samesite="none",
-                        domain="192.168.1.103")
+                        samesite="lax",
+                        domain=FRONTEND_IP)
 
 
 @app.delete("/session/delete", status_code=204)
