@@ -160,22 +160,21 @@ async def check_table_exists(filename: str, tablename: str) -> bool:
         
 
 async def delete_row_in_table(
-        filename: str, 
-        tablename: str, 
-        values: Dict[str, Any], 
-        limit: Optional[int]) -> int:
+    filename: str, 
+    tablename: str, 
+    values: Dict[str, Any], 
+    limit: Optional[int] = None) -> int:
 
-        """Deletes one or more rows (set by the limit argument, 
-        None - no limit), returns the number of affected rows"""
+    """Deletes one or more rows (set by the limit argument, 
+    None - no limit), returns the number of affected rows"""
 
-        where_expression: str = get_where_expression(values)
-        limit_expression: str = f"LIMIT {limit}" if limit else ""
-        async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
-            query: str = f"DELETE FROM {tablename} " + where_expression + " " + limit_expression
-            print(query)
-            async with conn.execute(query) as cursor:
-                await conn.commit()
-                return cursor.rowcount
+    where_expression: str = get_where_expression(values)
+    limit_expression: str = f"LIMIT {limit}" if limit else ""
+    async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
+        query: str = f"DELETE FROM {tablename} " + where_expression + " " + limit_expression
+        async with conn.execute(query) as cursor:
+            await conn.commit()
+            return cursor.rowcount
     
 
 async def update_row_in_table(
@@ -190,6 +189,7 @@ async def update_row_in_table(
     try:
         async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
             query: str = f"UPDATE {tablename} {set_expression} {where_expression} LIMIT 1"
+            print(query)
             async with conn.execute(query) as cursor:
                 await conn.commit()
                 return bool(cursor.rowcount)

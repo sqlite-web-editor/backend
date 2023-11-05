@@ -1,4 +1,5 @@
-from io import BytesIO
+import base64
+
 
 def prepare_int_to_string(content: dict):
     indices = []
@@ -30,9 +31,13 @@ def prepare_blob(content: dict):
         row_data = []
         for index, value in enumerate(row):
             if index in indices:
-                value = ""
+                value = base64.b64encode(value)
             row_data.append(value)
         data.append(row_data)
 
     content["data"] = data
     return content
+
+
+def convert_b64blob_to_bytes(b64blob: str) -> bytes:
+    return base64.b64decode(b64blob)
