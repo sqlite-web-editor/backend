@@ -117,6 +117,18 @@ async def delete_sqlite_row(
     
     session_id: str = request.cookies.get("session_id") # type: ignore
     filename: str = session_id+".db"
+    indices: list[int] = []
+    meta = await get_columns_meta(filename, tablename)
+
+    for index, column in enumerate(meta):
+        if column["type"] == "BLOB":
+            indices.append(index)
+    
+    for blob_col_index in indices:
+        blob_col_name = meta[blob_col_index]["name"]
+        if blob_col_name in confirmation_values:
+            confirmation_values[blob_col_name] = convert_b64blob_to_bytes(confirmation_values[blob_col_name])
+
     rowcount: int = await delete_row_in_table(filename, tablename, confirmation_values, limit)
             
     return {"rowcount": rowcount}
@@ -177,13 +189,37 @@ async def create_sqlite_row(
     ):
     session_id: str = request.cookies.get("session_id") # type: ignore
     filename: str = session_id+".db"
+
+    indices: list[int] = []
+    meta = await get_columns_meta(filename, tablename)
+
+    for index, column in enumerate(meta):
+        if column["type"] == "BLOB":
+            indices.append(index)
+    
+    for blob_col_index in indices:
+        blob_col_name = meta[blob_col_index]["name"]
+        if blob_col_name in row_values:
+            row_values[blob_col_name] = convert_b64blob_to_bytes(row_values[blob_col_name])
+
     try:
-        return await create_row_in_table(
+        row_data = await create_row_in_table(
             filename,
             tablename,
             row_values,
         )
+        data = prepare_blob(
+            prepare_int_to_string({
+                "data": list([row_data.values()], ),
+                "columns": meta,
+            })
+        )
+        data_to_send = {}
+        for column in data["columns"]:
+            data_to_send[column["name"]] = data["data"][0][column["cid"]]
 
+        return data_to_send
+        
     # except KeyError as error:
     #     raise HTTPException(status_code=400, detail=str(error))
 
@@ -197,17 +233,3 @@ async def create_sqlite_row(
 
     except Warning:
         raise HTTPException(status_code=409, detail='Похоже на SQL инъекцию. Пожалуйста, не используйте символ ";"')
-
-import base64
-@app.get("/get_data_with_bytes")
-async def get_data_with_bytes():
-    # Ваши данные из таблицы, включая бинарные данные (в данном случае, это просто строка)
-    table_data = b"Hello, bytes!asawrw"
-
-    # Создать словарь, включая байты в поле "table_data"
-    data = {
-        "other_data": "Some other data",
-        "table_data": base64.b64encode(table_data) if table_data else None
-    }
-
-    return data

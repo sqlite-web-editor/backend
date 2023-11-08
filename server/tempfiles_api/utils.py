@@ -26,16 +26,16 @@ def get_where_expression(values: Dict[str, Any]) -> str:
     get_where_expression({"id": 1, "money": 200}) -> WHERE id=1 AND money=200
     
     """
-    return "WHERE "+" AND ".join(get_sql_equal_expression(values))
+    return "WHERE "+" AND ".join([f'{item} = ?' for item in values.keys()])
 
 
 def get_set_expression(values: Dict[str, Any]) -> str:
-    return "SET "+", ".join(get_sql_equal_expression(values))
+    return "SET "+", ".join([f'{item} = ?' for item in values.keys()])
 
 
 def get_sql_values_expression(values: Dict[str, Any]) -> str:
     
     columns: str = conclude_in_brackets(", ".join(values.keys()))
-    values_expression: str = "VALUES "+conclude_in_brackets(", ".join(map(detect_sql_string, values.values())))
+    values_expression: str = "VALUES "+conclude_in_brackets(",".join(["?" for _ in values.items()]))
     
     return f"{columns} {values_expression}"

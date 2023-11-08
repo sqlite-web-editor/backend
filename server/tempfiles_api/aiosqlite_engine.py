@@ -56,7 +56,6 @@ async def get_columns_meta(filename: str, tablename: str) -> List[Dict]:
                     if unique_column[1] == column_metadata[0]:
                         unique=True
                     
-                #in_unique_list = 
                 current_column = {
                     "cid": column_metadata[0],
                     "name": column_metadata[1],
@@ -172,7 +171,7 @@ async def delete_row_in_table(
     limit_expression: str = f"LIMIT {limit}" if limit else ""
     async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
         query: str = f"DELETE FROM {tablename} " + where_expression + " " + limit_expression
-        async with conn.execute(query) as cursor:
+        async with conn.execute(query, list(values.values())) as cursor:
             await conn.commit()
             return cursor.rowcount
     
@@ -186,11 +185,11 @@ async def update_row_in_table(
     set_expression: str = get_set_expression(updated_values)
     where_expression: str = get_where_expression(confirmation_values)
 
+    placeholders: List[Any] = list(updated_values.values())+list(confirmation_values.values())
     try:
         async with aiosqlite.connect(os_join("tempfiles", filename)) as conn:
             query: str = f"UPDATE {tablename} {set_expression} {where_expression} LIMIT 1"
-            print(query)
-            async with conn.execute(query) as cursor:
+            async with conn.execute(query, placeholders) as cursor:
                 await conn.commit()
                 return bool(cursor.rowcount)
     except OperationalError:
@@ -219,14 +218,13 @@ async def create_row_in_table(
             insert_expression: str = f"INSERT INTO {tablename}"
             values_expression: str = get_sql_values_expression(values)
             query: str = f"{insert_expression} {values_expression}"
-
-            async with conn.execute(query) as cursor:
+            async with conn.execute(query, list(values.values())) as cursor:
                 await conn.commit()
 
             where_expression: str = get_where_expression(values)
             query: str = f"SELECT * FROM {tablename} {where_expression}"
 
-            async with conn.execute(query) as cursor:
+            async with conn.execute(query, list(values.values())) as cursor:
                 similar_rows: tuple = tuple(await cursor.fetchall())
 
                 if similar_rows == tuple():
