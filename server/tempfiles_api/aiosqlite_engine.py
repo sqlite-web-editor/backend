@@ -51,6 +51,19 @@ async def get_columns_meta(filename: str, tablename: str) -> List[Dict]:
 
             for column_metadata in result:
                 unique = False
+                column_metadata = list(column_metadata)
+
+                if "INT" in column_metadata[2]:
+                    column_metadata[2] = "INTEGER"
+
+                elif "CHAR" in column_metadata[2] or column_metadata[2]=="CLOB":
+                    column_metadata[2] = "TEXT"
+
+                elif column_metadata[2] in ["DOUBLE", "REAL", "FLOAT"]:
+                    column_metadata[2] = "REAL"
+
+                elif "BOOL" in column_metadata[2]:
+                    column_metadata[2] = "BOOLEAN"
 
                 for unique_column in uniques:
                     if unique_column[1] == column_metadata[0]:
